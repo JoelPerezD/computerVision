@@ -1,0 +1,23 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Dataset generado
+fruit_binary_yolo_cls/
+
+# Salidas de entrenamiento
+runs/
+
+# Cache
+__pycache__/
+.ipynb_checkpoints/
+.cache/
+*.pyc
+
+# Salidas de inferencia opcionales
+inference_outputs/
+sample_result.jpg
+
+# modelo
+yolo11n-cls.pt
+
