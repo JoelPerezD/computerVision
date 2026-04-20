@@ -1,0 +1,4 @@
+,pred_Healthy,pred_Rotten,pred_background
+true_Healthy,1365.0,13.0,0.0
+true_Rotten,15.0,1538.0,0.0
+true_background,0.0,0.0,0.0

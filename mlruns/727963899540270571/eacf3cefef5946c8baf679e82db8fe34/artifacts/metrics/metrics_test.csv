@@ -1,0 +1,4 @@
+metric,value
+accuracy_top1,0.990446925163269
+accuracy_top5,1.0
+fitness,0.9952234625816345
