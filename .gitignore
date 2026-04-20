@@ -1,7 +1,7 @@
 # Entorno virtual
 .venv/
 venv/
-
+en
 # Dataset generado
 fruit_binary_yolo_cls/
 

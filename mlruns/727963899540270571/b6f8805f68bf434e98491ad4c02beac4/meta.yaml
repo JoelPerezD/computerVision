@@ -1,0 +1,14 @@
+artifact_uri: file:///lustre/cursos/curso04/estudiante_66/computerVision/mlruns/727963899540270571/b6f8805f68bf434e98491ad4c02beac4/artifacts
+end_time: 1774068342048
+entry_point_name: ''
+experiment_id: '727963899540270571'
+lifecycle_stage: active
+run_id: b6f8805f68bf434e98491ad4c02beac4
+run_name: Guardado_Pesos_Final
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1774068342012
+status: 4
+tags: []
+user_id: estudiante_66

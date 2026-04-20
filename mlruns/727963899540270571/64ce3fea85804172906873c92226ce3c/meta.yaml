@@ -1,0 +1,14 @@
+artifact_uri: file:///lustre/cursos/curso04/estudiante_66/computerVision/mlruns/727963899540270571/64ce3fea85804172906873c92226ce3c/artifacts
+end_time: 1774060580052
+entry_point_name: ''
+experiment_id: '727963899540270571'
+lifecycle_stage: active
+run_id: 64ce3fea85804172906873c92226ce3c
+run_name: fruit_hs_vs_rt_cls_simple_ft5
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1774060579500
+status: 4
+tags: []
+user_id: estudiante_66

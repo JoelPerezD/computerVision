@@ -1,0 +1,14 @@
+artifact_uri: file:///lustre/cursos/curso04/estudiante_66/computerVision/mlruns/727963899540270571/38fc925db0714cb7ace9a11b4aa7ac20/artifacts
+end_time: 1774069310728
+entry_point_name: ''
+experiment_id: '727963899540270571'
+lifecycle_stage: active
+run_id: 38fc925db0714cb7ace9a11b4aa7ac20
+run_name: Rescate_Modelo_Entrenado
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1774069310687
+status: 3
+tags: []
+user_id: estudiante_66

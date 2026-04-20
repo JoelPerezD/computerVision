@@ -1,0 +1,6 @@
+artifact_location: file:///lustre/cursos/curso04/estudiante_66/computerVision/mlruns/920878481846248033
+creation_time: 1774059457772
+experiment_id: '920878481846248033'
+last_update_time: 1774059457772
+lifecycle_stage: active
+name: runs/classify
