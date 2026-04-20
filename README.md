@@ -1,4 +1,4 @@
-# FruitQuality-YOLO: Clasificación Automatizada de Calidad en Frutas con YOLOv11 y MLflow
+# Clasificación Automatizada de Calidad en Frutas con YOLOv11 y MLflow
 
 > Sistema de visión artificial para clasificar frutas como **sanas** o **podridas** mediante *fine-tuning* de YOLOv11-cls, entrenado sobre un clúster HPC (Yuca) con almacenamiento Lustre y seguimiento de experimentos con MLflow.
 
@@ -27,8 +27,7 @@ Este proyecto aborda el problema con un enfoque **ligero y portable** basado en 
 | Seguimiento de experimentos | MLflow (backend `file://` sobre Lustre) |
 | Dataset | `kagglehub` → Kaggle (`muhammad0subhan/fruit-and-vegetable-disease-healthy-vs-rotten`) |
 | Utilidades | `opencv-python`, `pandas`, `matplotlib`, `tqdm` |
-| Infraestructura | Clúster HPC Yuca · sistema de archivos Lustre · Bash / Linux |
-| Entorno local | Windows 11 + WSL2 (desarrollo) |
+| Infraestructura | Clúster HPC Yuca  / Linux |
 
 ---
 
@@ -52,11 +51,6 @@ computerVision/
 └── README.md
 ```
 
-### Notas sobre `runs/` y `mlruns/`
-
-- **`runs/`** es la convención de Ultralytics: aloja checkpoints, `confusion_matrix.png` y métricas crudas por cada ejecución.
-- **`mlruns/`** es el *tracking store* de MLflow. En el clúster apunta a una ruta absoluta en Lustre (`/lustre/cursos/curso04/estudiante_66/computerVision/mlruns`) para que varias sesiones compartan el mismo historial.
-- Ambas carpetas son **complementarias**: `runs/` guarda el *bajo nivel* (lo que produjo Ultralytics); `mlruns/` guarda el *registro de experimentos* (parámetros, métricas, artefactos promovidos).
 
 ---
 
@@ -139,7 +133,6 @@ runs/classify/val2/
 └── confusion_matrix_normalized.png
 ```
 
-*(Inserta aquí la imagen cuando publiques el repo):*
 
 ```markdown
 ![Matriz de confusión](runs/classify/val2/confusion_matrix.png)
@@ -159,19 +152,7 @@ runs/classify/val2/
 
 ---
 
-## 6. Troubleshooting
-
-| Síntoma | Causa probable | Solución |
-|---|---|---|
-| `FileNotFoundError` en `best.pt` | Entrenamiento anidado en `runs/classify/runs/classify/...` | Ajustar `PATH_BEST_WEIGHTS` o usar `find runs -name 'best.pt'` |
-| `ValueError: file:// URI` en MLflow (Windows) | URI mal construido con dos barras | Usar `Path(...).resolve().as_uri()` (3 barras en Windows) |
-| Runs duplicados en MLflow al llamar `model.val()` | Autolog de Ultralytics activo | `from ultralytics import settings; settings.update({"mlflow": False})` |
-| `log_metric` falla con NaN | MLflow rechaza valores no finitos | Filtrar con `np.isnan` antes de `log_metrics` |
-| GPU AMD no detectada en Windows | Ultralytics no soporta ROCm nativo en Windows | Ejecutar en WSL2 o en el clúster Linux |
-
----
-
-## 7. Roadmap
+## 6. Roadmap
 
 - [ ] Exportar modelo a ONNX / TensorRT para inferencia en edge.
 - [ ] Ampliar a clasificación multi-especie (manzana, plátano, naranja, etc.) con `task=classify` multiclase.
@@ -180,7 +161,7 @@ runs/classify/val2/
 
 ---
 
-## 8. Créditos
+## 7. Créditos
 
 - **Autoría y desarrollo:** Joel Alfonso Pérez Díaz.
 - **Modelo base:** [Ultralytics YOLOv11](https://github.com/ultralytics/ultralytics).
@@ -189,6 +170,6 @@ runs/classify/val2/
 
 ---
 
-## 9. Licencia
+## 8 Licencia
 
 Uso académico y demostrativo. Consulta la licencia original del dataset en Kaggle antes de un uso comercial. El código del pipeline es propiedad intelectual de Joel Alfonso Pérez Díaz; contacta al autor para licenciamiento.
