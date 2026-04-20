@@ -4,6 +4,8 @@ venv/
 en
 # Dataset generado
 fruit_binary_yolo_cls/
+# articulo de medium
+medium_article.md
 
 # Salidas de entrenamiento
 runs/

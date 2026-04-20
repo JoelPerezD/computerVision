@@ -1,224 +1,194 @@
-# Proyecto: Conteo de Frutas Sanas vs Podridas con YOLO11
+# FruitQuality-YOLO: Clasificación Automatizada de Calidad en Frutas con YOLOv11 y MLflow
 
-Este proyecto quedo unificado en una sola libreta y un solo script.
+> Sistema de visión artificial para clasificar frutas como **sanas** o **podridas** mediante *fine-tuning* de YOLOv11-cls, entrenado sobre un clúster HPC (Yuca) con almacenamiento Lustre y seguimiento de experimentos con MLflow.
 
-Objetivo:
-- Descargar y preparar el dataset binario Healthy vs Rotten.
-- Entrenar un clasificador YOLO11-cls sobre ese dataset.
-- Ejecutar inferencia con detector + clasificador.
-- Obtener conteos finales por imagen y por lote.
+**Autor:** Joel Alfonso Pérez Díaz
+**Estado:** funcional · pesos finales (`best.pt`) generados · métricas registradas en MLflow
 
 ---
 
-## Archivos principales
+## 1. Problema y motivación
+
+Las pérdidas post-cosecha por deterioro visual de frutas representan un porcentaje significativo del desperdicio alimentario global. La inspección manual es lenta, subjetiva y difícil de escalar en centros de distribución, supermercados y plantas empacadoras.
+
+Este proyecto aborda el problema con un enfoque **ligero y portable** basado en YOLOv11-cls: un clasificador binario (*Healthy* / *Rotten*) que puede desplegarse tanto en workstations locales como en infraestructura HPC, con trazabilidad completa de experimentos vía MLflow.
+
+**Caso de uso objetivo:** triaje automático de calidad en líneas de selección, control de calidad en bodega y apoyo a procesos de toma de decisión en venta mayorista.
+
+---
+
+## 2. Stack tecnológico
+
+| Componente | Herramienta |
+|---|---|
+| Lenguaje | Python 3.9 / 3.10 |
+| Framework de visión | [Ultralytics YOLOv11](https://docs.ultralytics.com) (`yolo11n-cls.pt`) |
+| Deep learning backend | PyTorch 2.3 + ROCm 5.7 (clúster Yuca, AMD Instinct MI210) |
+| Seguimiento de experimentos | MLflow (backend `file://` sobre Lustre) |
+| Dataset | `kagglehub` → Kaggle (`muhammad0subhan/fruit-and-vegetable-disease-healthy-vs-rotten`) |
+| Utilidades | `opencv-python`, `pandas`, `matplotlib`, `tqdm` |
+| Infraestructura | Clúster HPC Yuca · sistema de archivos Lustre · Bash / Linux |
+| Entorno local | Windows 11 + WSL2 (desarrollo) |
+
+---
+
+## 3. Estructura del proyecto
 
 ```text
-Frutas_yolo_det.ipynb      <- Flujo completo en una sola libreta
-frutas_pipeline.py         <- Script para ejecutar desde terminal
-fruit_binary_yolo_cls/     <- Dataset binario generado
-runs/classify/             <- Checkpoints de entrenamiento
-yolo11n-cls.pt             <- Pesos base del clasificador
-README.md                  <- Documentacion del proyecto
+computerVision/
+├── Frutas_yolo_det.ipynb          # Notebook maestro: prep, eval e inferencia
+├── frutas_pipeline.py             # CLI equivalente para ejecución en clúster
+├── fruit_binary_yolo_cls/         # Dataset binario generado (train/val/test)
+│   ├── train/{Healthy,Rotten}/
+│   ├── val/{Healthy,Rotten}/
+│   └── test/{Healthy,Rotten}/
+├── runs/                          # Artefactos de Ultralytics (checkpoints + plots)
+│   └── classify/
+│       └── fruit_hs_vs_rt_cls_simple_ft5/
+│           └── weights/best.pt    # Pesos finales del clasificador
+├── mlruns/                        # Backend local de MLflow (file-store)
+├── yolo11n-cls.pt                 # Pesos base preentrenados
+├── mejor_modelo_frutas_final.pt   # Copia respaldada del mejor modelo
+└── README.md
 ```
 
-Las tres libretas antiguas fueron eliminadas para dejar un flujo unico y mas simple de mantener.
+### Notas sobre `runs/` y `mlruns/`
+
+- **`runs/`** es la convención de Ultralytics: aloja checkpoints, `confusion_matrix.png` y métricas crudas por cada ejecución.
+- **`mlruns/`** es el *tracking store* de MLflow. En el clúster apunta a una ruta absoluta en Lustre (`/lustre/cursos/curso04/estudiante_66/computerVision/mlruns`) para que varias sesiones compartan el mismo historial.
+- Ambas carpetas son **complementarias**: `runs/` guarda el *bajo nivel* (lo que produjo Ultralytics); `mlruns/` guarda el *registro de experimentos* (parámetros, métricas, artefactos promovidos).
 
 ---
 
-## Que hace la libreta unica
+## 4. Guía de uso rápida
 
-`Frutas_yolo_det.ipynb` incluye todo el pipeline:
+### 4.1. Requisitos
 
-1. Instalacion de dependencias.
-2. Configuracion general del proyecto.
-3. Descarga del dataset desde Kaggle.
-4. Conversion del dataset a binario (`Healthy` y `Rotten`).
-5. Split en `train`, `val` y `test`.
-6. Entrenamiento simple de `yolo11n-cls.pt`.
-7. Evaluacion en validacion y test.
-8. Prueba automatica con una imagen del split `test`.
-9. Visualizacion de metricas con `matplotlib`.
-10. Inferencia batch sobre una carpeta completa.
-
----
-
-## Dataset
-
-Dataset usado:
-- `muhammad0subhan/fruit-and-vegetable-disease-healthy-vs-rotten`
-
-Estructura original:
-- `Apple_Healthy`, `Apple_Rotten`, `Banana_Healthy`, `Banana_Rotten`, etc.
-
-Estructura generada:
-
-```text
-fruit_binary_yolo_cls/
-   train/
-      Healthy/
-      Rotten/
-   val/
-      Healthy/
-      Rotten/
-   test/
-      Healthy/
-      Rotten/
+```bash
+python -m venv .venv
+source .venv/bin/activate          # Linux / WSL
+# .venv\Scripts\activate           # Windows PowerShell
+pip install ultralytics mlflow opencv-python pandas matplotlib tqdm kagglehub
 ```
 
----
+### 4.2. Cargar `best.pt` y hacer inferencia
 
-## Entrenamiento
+```python
+from pathlib import Path
+from ultralytics import YOLO
 
-Configuracion actual:
-- Modelo base: `yolo11n-cls.pt`
-- Nombre del run: `fruit_hs_vs_rt_cls_simple_ft5`
-- Tamano de imagen: `640`
-- Epocas: `5`
-- Batch: `32`
-- Augmentacion: se usa la augmentacion por defecto de YOLO para clasificacion
+# Ajusta la ruta según entorno (Windows local o Lustre)
+PATH_BEST_WEIGHTS = Path("runs/classify/fruit_hs_vs_rt_cls_simple_ft5/weights/best.pt")
+assert PATH_BEST_WEIGHTS.exists(), f"No existe: {PATH_BEST_WEIGHTS}"
 
-Checkpoint esperado:
+model = YOLO(str(PATH_BEST_WEIGHTS))
+result = model.predict("ruta/a/imagen.jpg", imgsz=640, verbose=False)[0]
 
-```text
-runs/classify/fruit_hs_vs_rt_cls_simple_ft5/weights/best.pt
+pred = result.names[int(result.probs.top1)]
+conf = float(result.probs.top1conf.item())
+print(f"Predicción: {pred} ({conf:.2%})")
 ```
 
-Artefactos de metricas generados por el script:
+### 4.3. Evaluar sobre test + registrar en MLflow
 
-```text
-runs/classify/fruit_hs_vs_rt_cls_simple_ft5/metrics_summary.csv
-runs/classify/fruit_hs_vs_rt_cls_simple_ft5/metrics_summary.png
+El notebook `Frutas_yolo_det.ipynb` contiene un bloque modular de evaluación que:
+
+1. Valida la existencia de `best.pt` y del dataset.
+2. Ejecuta `model.val(split="test", plots=True)` y extrae Top-1, Top-5 y matriz de confusión.
+3. Registra parámetros (`imgsz`, `batch`, `conf`, `iou`), métricas y artefactos (`.pt`, plots, CSV) en un *run* de MLflow.
+
+Para visualizar los resultados:
+
+```bash
+mlflow ui --backend-store-uri ./mlruns --port 5000
 ```
 
----
+### 4.4. Ejecución desde CLI
 
-## Inferencia
-
-La inferencia usa un enfoque hibrido:
-
-1. `yolo11n.pt` detecta objetos en la imagen.
-2. Cada bounding box se recorta.
-3. El clasificador entrenado decide si el recorte es `Healthy` o `Rotten`.
-4. Se genera el conteo final por imagen.
-
-Clases COCO filtradas por defecto:
-- `apple`
-- `banana`
-- `orange`
-- `broccoli`
-- `carrot`
-
-Salida esperada:
-- Imagen anotada con cajas y etiquetas.
-- Conteo final de sanas y podridas.
-- CSV con conteos en modo batch.
-
----
-
-## Uso de la libreta
-
-Abrir y ejecutar en orden:
-- `Frutas_yolo_det.ipynb`
-
-Resultado esperado:
-- Dataset binario generado.
-- Checkpoint `best.pt` entrenado.
-- Tabla de metricas en `val` y `test`.
-- Grafica de metricas con `matplotlib`.
-- Prueba con una imagen tomada automaticamente desde `DATA_DIR/test`.
-- Inferencia batch con `counts.csv`.
-
----
-
-## Uso del script
-
-Ejemplos:
-
-Preparar dataset:
-
-```powershell
-python frutas_pipeline.py --prepare-dataset
-```
-
-Entrenar clasificador:
-
-```powershell
-python frutas_pipeline.py --train
-```
-
-Preparar dataset y entrenar:
-
-```powershell
-python frutas_pipeline.py --all
-```
-
-Inferencia sobre una imagen:
-
-```powershell
+```bash
+# Inferencia puntual
 python frutas_pipeline.py --image sample.jpg --output-image salida.jpg
-```
 
-Prueba automatica con una imagen del split test:
-
-```powershell
-python frutas_pipeline.py --demo-image --output-image sample_result.jpg
-```
-
-Inferencia batch sobre una carpeta:
-
-```powershell
+# Inferencia batch sobre una carpeta
 python frutas_pipeline.py --input-dir inference_images --output-dir inference_outputs
 ```
 
-Opciones utiles:
-- `--run-name` para cambiar el nombre del entrenamiento.
-- `--epochs` para cambiar las epocas.
-- `--batch` para cambiar el batch size.
-- `--demo-image` para probar rapido el modelo con una imagen del split test.
+---
+
+## 5. Resultados
+
+### 5.1. Métricas de clasificación
+
+Evaluación sobre el split de test (2,931 imágenes):
+
+| Métrica | Validación | Test |
+|---|---|---|
+| **Accuracy Top-1** | 0.9867 | **0.9904** |
+| **Accuracy Top-5** | 1.0000 | 1.0000 |
+| **Fitness** | 0.9933 | 0.9952 |
+
+> Top-5 = 1.0 es esperado en un problema binario; Top-1 es la métrica de referencia.
+
+### 5.2. Matriz de confusión
+
+Las gráficas se generan automáticamente en `runs/classify/val*/confusion_matrix.png` y se registran como artefactos en MLflow:
+
+```text
+runs/classify/val2/
+├── confusion_matrix.png
+└── confusion_matrix_normalized.png
+```
+
+*(Inserta aquí la imagen cuando publiques el repo):*
+
+```markdown
+![Matriz de confusión](runs/classify/val2/confusion_matrix.png)
+```
+
+### 5.3. Configuración del entrenamiento
+
+| Hiperparámetro | Valor |
+|---|---|
+| Modelo base | `yolo11n-cls.pt` |
+| Image size | 640 |
+| Batch size | 32 |
+| Épocas | 5 (con `freeze=10`) |
+| Optimizador | por defecto (SGD, lr=0.01) |
+| Device | AMD Instinct MI210 (ROCm) |
+| Dataset | 23,432 train · 2,928 val · 2,931 test |
 
 ---
 
-## Requisitos
+## 6. Troubleshooting
 
-- Python 3.10+
-- Entorno virtual recomendado: `.venv`
-
-Dependencias principales:
-- `kagglehub`
-- `tqdm`
-- `ultralytics`
-- `opencv-python`
-- `matplotlib`
-- `pandas`
-- `scikit-learn`
-
-La libreta ya incluye la instalacion de dependencias. El script asume que ya estan instaladas.
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| `FileNotFoundError` en `best.pt` | Entrenamiento anidado en `runs/classify/runs/classify/...` | Ajustar `PATH_BEST_WEIGHTS` o usar `find runs -name 'best.pt'` |
+| `ValueError: file:// URI` en MLflow (Windows) | URI mal construido con dos barras | Usar `Path(...).resolve().as_uri()` (3 barras en Windows) |
+| Runs duplicados en MLflow al llamar `model.val()` | Autolog de Ultralytics activo | `from ultralytics import settings; settings.update({"mlflow": False})` |
+| `log_metric` falla con NaN | MLflow rechaza valores no finitos | Filtrar con `np.isnan` antes de `log_metrics` |
+| GPU AMD no detectada en Windows | Ultralytics no soporta ROCm nativo en Windows | Ejecutar en WSL2 o en el clúster Linux |
 
 ---
 
-## GPU
+## 7. Roadmap
 
-Comportamiento actual:
-- Si hay GPU CUDA disponible, se usa automaticamente.
-- Si no hay GPU compatible, se usa CPU.
-
-Nota:
-- En Windows con GPU AMD, Ultralytics normalmente termina usando CPU en este flujo.
-- Si quieres AMD con aceleracion real, la opcion recomendable es Linux o WSL2 con ROCm.
+- [ ] Exportar modelo a ONNX / TensorRT para inferencia en edge.
+- [ ] Ampliar a clasificación multi-especie (manzana, plátano, naranja, etc.) con `task=classify` multiclase.
+- [ ] Integrar servicio REST con FastAPI para inferencia como microservicio.
+- [ ] CI mínimo: `pytest` + `ruff` + validación de shape del `best.pt`.
 
 ---
 
-## Troubleshooting
+## 8. Créditos
 
-- Si falla Kaggle, revisa tu token de API.
-- Si no aparece `best.pt`, revisa que el entrenamiento termino correctamente.
-- Si la inferencia no encuentra el clasificador, revisa la ruta del run.
-- Si va lento, probablemente estas corriendo en CPU.
-- Si el detector pierde objetos, baja `det_conf` o desactiva el filtro de clases.
+- **Autoría y desarrollo:** Joel Alfonso Pérez Díaz.
+- **Modelo base:** [Ultralytics YOLOv11](https://github.com/ultralytics/ultralytics).
+- **Dataset:** [Fruit and Vegetable Disease (Healthy vs Rotten)](https://www.kaggle.com/datasets/muhammad0subhan/fruit-and-vegetable-disease-healthy-vs-rotten) — Muhammad Subhan (Kaggle).
+- **Infraestructura HPC:** Clúster Yuca (AMD Instinct MI210 + ROCm).
 
 ---
 
-## Creditos
+## 9. Licencia
 
-- Ultralytics YOLO11
-- Kaggle dataset: `muhammad0subhan/fruit-and-vegetable-disease-healthy-vs-rotten`
+Uso académico y demostrativo. Consulta la licencia original del dataset en Kaggle antes de un uso comercial. El código del pipeline es propiedad intelectual de Joel Alfonso Pérez Díaz; contacta al autor para licenciamiento.
